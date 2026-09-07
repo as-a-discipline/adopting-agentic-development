@@ -9,14 +9,13 @@ vars:
 tasks:
   lint:
     desc: Lint the OpenAPI contract (Redocly CLI, pinned container)
+    dir: "{{.TASKFILE_DIR}}"
     cmds:
-      - docker run --rm -v "{{.PWD}}":/spec -w /spec {{.REDOCLY_IMAGE}} lint openapi.yaml
-    vars:
-      PWD:
-        sh: pwd
+      - docker run --rm -v "{{.TASKFILE_DIR}}":/spec -w /spec {{.REDOCLY_IMAGE}} lint openapi.yaml
 
   compat:
     desc: Check the contract for breaking changes against the stored baseline (oasdiff, pinned container)
+    dir: "{{.TASKFILE_DIR}}"
     cmds:
       - |
         if [ ! -f openapi.baseline.yaml ]; then
@@ -24,28 +23,27 @@ tasks:
           echo "This run establishes the baseline; it does not itself prove compatibility."
           cp openapi.yaml openapi.baseline.yaml
         else
-          docker run --rm -v "$(pwd)":/spec -w /spec {{.OASDIFF_IMAGE}} breaking /spec/openapi.baseline.yaml /spec/openapi.yaml
+          docker run --rm -v "{{.TASKFILE_DIR}}":/spec -w /spec {{.OASDIFF_IMAGE}} breaking /spec/openapi.baseline.yaml /spec/openapi.yaml
         fi
 
   generate:
     desc: Regenerate downstream Go server types/interfaces from the OpenAPI contract
     deps: [lint]
+    dir: "{{.TASKFILE_DIR}}"
     cmds:
-      - mkdir -p ../service/generated
+      - mkdir -p "{{.TASKFILE_DIR}}/../service/generated"
       - >
         docker run --rm
-        -v "{{.REPO_ROOT}}":/src -w /src/api
+        -v "{{.TASKFILE_DIR}}/..":/src -w /src/api
         {{.GO_IMAGE}}
         sh -c "go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@{{.OAPI_CODEGEN_VERSION}} -generate types,std-http,spec -package generated openapi.yaml > ../service/generated/api.gen.go.tmp && mv ../service/generated/api.gen.go.tmp ../service/generated/api.gen.go"
-    vars:
-      REPO_ROOT:
-        sh: cd .. && pwd
 
   validate:
     desc: Validate the API contract (lint + compatibility + generation freshness)
+    dir: "{{.TASKFILE_DIR}}"
     cmds:
       - task: lint
       - task: compat
       - task: generate
-      - ../scripts/check-generated-fresh.sh service/generated ..
+      - "{{.TASKFILE_DIR}}/../scripts/check-generated-fresh.sh service/generated {{.TASKFILE_DIR}}/.."
 
