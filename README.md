@@ -3,8 +3,6 @@
 Pulse is a tiny service-monitoring application: it checks a few HTTP services and
 shows whether they are healthy.
 
-> Pulse checks a few HTTP services and shows whether they are healthy.
-
 This repository is a small public demonstration built for a conference
 presentation about agentic software engineering. **The repository itself is the
 demonstration** — the application stays intentionally boring so the engineering
@@ -16,8 +14,12 @@ execution, guardrails) is what's worth looking at.
 It demonstrates an engineered environment for agentic development: contract-first
 API design, independently governed components sharing one repository, hierarchical
 agent instructions, reusable agent skills, staged context, deterministic task
-interfaces, generated-code boundaries, and containerized tooling — all backed by
-real, runnable validation rather than prose promises.
+interfaces, generated-code boundaries, deterministic policy enforcement, and
+containerized tooling — all backed by real, runnable validation rather than prose
+promises. Someone inspecting this repository should be able to understand exactly
+what an agent was taught, what skills were available, what commands it could use,
+what constraints existed, how generated artifacts were produced, and how
+correctness was evaluated — with nothing hidden behind tribal knowledge.
 
 ## Architecture
 
@@ -43,7 +45,9 @@ real, runnable validation rather than prose promises.
 consumes only the generated client. `deploy` packages built artifacts for local
 Compose integration and Kubernetes (Helm) — it owns none of the application
 behavior. Although this is one repository, each component is treated as
-independently governed: repository locality does not grant dependency access.
+independently governed: repository locality does not grant dependency access
+(enforced by a deterministic source-boundary scan, not just convention — see
+[Guardrails](#guardrails)).
 
 ## Repository Structure
 
@@ -54,6 +58,7 @@ independently governed: repository locality does not grant dependency access.
 ├── Taskfile.yml             Root task composition; `task validate` is canonical
 ├── adr/                     Cross-cutting architecture decisions (MADR format)
 ├── verification/            Cross-cutting verification (skills, architecture)
+├── scripts/                 Repo-wide validation scripts + git-hooks/ source
 ├── .github/
 │   └── copilot-instructions.md   Small pointer to AGENTS.md/skills/Task
 ├── .agents/skills/           Reusable agent workflows (SKILL.md per skill)
@@ -69,8 +74,8 @@ independently governed: repository locality does not grant dependency access.
 Architecture decision records are colocated with the component they concern
 (`api/adr/`, `service/adr/`); only genuinely cross-cutting decisions live in root
 `/adr/`. The same principle applies to verification docs: component-specific
-verification evidence will live with that component as it's built; only the
-cross-cutting skill/architecture verification lives in root `/verification/`.
+verification evidence lives with that component; only the cross-cutting
+skill/architecture verification lives in root `/verification/`.
 
 ## Prerequisites
 
@@ -82,6 +87,13 @@ linters run from pinned containers and are not required on the host.
 ```bash
 make check-prereqs
 make bootstrap
+```
+
+Optionally install the local-only git pre-commit hook (see
+[Guardrails](#guardrails)):
+
+```bash
+task hooks:install
 ```
 
 ## Common Tasks
@@ -96,8 +108,19 @@ task service:validate
 task web:test
 task web:validate
 
+task policies:validate
+
 task compose:test
 task helm:validate
+```
+
+## Run Locally
+
+```bash
+task compose:up      # build + start service, web, and deterministic fake targets
+curl http://localhost:18080/api/v1/services   # API directly
+open http://localhost:18000                    # web UI (or curl it)
+task compose:down    # stop and fully clean up
 ```
 
 ## Validate Everything
@@ -107,8 +130,9 @@ task validate
 ```
 
 This is the canonical repository-level validation entry point; it orchestrates
-structure, API, service, web, Compose, and Helm validation without duplicating
-any component's implementation.
+structure, API, service, web, policy, Compose, and Helm validation — in that
+order, failing clearly at whichever boundary breaks — without duplicating any
+component's own implementation.
 
 ## Agent Instructions
 
@@ -117,21 +141,30 @@ global invariants; each component has its own `AGENTS.md` with local rules
 (`api/AGENTS.md`, `service/AGENTS.md`, `web/AGENTS.md`, `deploy/AGENTS.md`,
 `deploy/compose/AGENTS.md`, `deploy/helm/AGENTS.md`, `policies/AGENTS.md`).
 [`.github/copilot-instructions.md`](./.github/copilot-instructions.md) is a small
-pointer into this hierarchy, not a duplicate of it.
+pointer into this hierarchy, not a duplicate of it. An agent never needs to load
+every file — only the root (always) plus whichever component's `AGENTS.md` the
+current task actually touches. See
+[`verification/architecture.md`](./verification/architecture.md#7-instruction-hierarchy-in-practice--a-worked-example)
+for a concrete worked example of this composition.
 
 ## Agent Skills
 
 Reusable workflows live in [`.agents/skills/`](./.agents/skills/): `api-contract`,
 `service-development`, `web-development`, `compose-integration`,
 `helm-validation`, `repository-validation`. Each skill documents its trigger, the
-Task interface it uses, and what evidence indicates success.
+Task interface it uses, and what evidence indicates success — and each has been
+verified end-to-end (not just structurally) in
+[`verification/skills.md`](./verification/skills.md), which also documents how to
+verify skill discovery with both Copilot CLI and OpenCode.
 
 ## Generated Code
 
-The OpenAPI contract in `api/openapi.yaml` (Session 2) is the source of truth.
-Go server types (`service/generated/`) and the TypeScript client
-(`web/generated/`) are generated from it and must never be hand-edited — change
-the contract or generator configuration, then regenerate via `task *:generate`.
+The OpenAPI contract in `api/openapi.yaml` is the source of truth. Go server
+types (`service/generated/`) and the TypeScript client (`web/generated/`) are
+generated from it and must never be hand-edited — change the contract or
+generator configuration, then regenerate via `task *:generate`. A deterministic
+freshness check (regenerate to a temp location, diff against the committed tree)
+gates both `api:validate`/`service:validate` and `web:validate`.
 
 ## Guardrails
 
@@ -140,9 +173,26 @@ the contract or generator configuration, then regenerate via `task *:generate`.
 * **Engineering validation** — lint, generation-freshness checks, tests, and
   static analysis gate every component.
 * **Component boundaries** — `web` never assumes Go internals; `service` never
-  depends on `web`; `deploy` owns no application behavior.
-* **Integration validation** — deterministic Docker Compose tests and Helm
-  lint/template checks validate the system as deployed, not just in isolation.
+  depends on `web`; `deploy` owns no application behavior. Enforced by a
+  grep-based source scan (`task policies:boundaries`), not just convention.
+* **Dependency governance** — every direct third-party dependency must appear in
+  a small, reviewable allow-list (`policies/allowed-dependencies.txt`), checked
+  by `task policies:dependencies`.
+* **Container/deployment quality** — Docker images run as non-root users with
+  pinned (non-`latest`) base image tags; Compose/Helm files are scanned for
+  secret-like literal values; the Helm chart is lint/template validated with no
+  live cluster required. Checked by `task policies:containers` and
+  `task helm:validate`.
+* **Integration validation** — deterministic Docker Compose tests validate the
+  system as deployed (healthy/degraded/down behavior end-to-end), not just in
+  isolation.
+* **Local pre-commit hook** (opt-in, local-only) — `task hooks:install` installs
+  a fast guardrail subset (`task structure:validate` + `task policies:validate`)
+  as `.git/hooks/pre-commit`. It is never tracked by git or pushed; it is not a
+  CI/CD mechanism, just a fast local check before the full `task validate` gate.
+
+See [`policies/README.md`](./policies/README.md) for the full rule set, each
+rule's exact enforcement command, and its status.
 
 ## Architecture Decisions
 
@@ -153,17 +203,10 @@ for component-specific decisions. Records use the
 
 ## Verification
 
-See [`/verification/`](./verification/) for the skill verification matrix and
-manual architecture-verification steps.
-
-## Current Implementation Status
-
-This is **Session 1**: repository skeleton only (instructions, skills, Task
-composition, ADRs, policy placeholders, verification docs). No OpenAPI contract,
-Go service, web application, Compose environment, or Helm chart exists yet —
-those are built in later, separately-run sessions. Component `task` targets for
-not-yet-built parts fail with an explicit "not implemented yet" message rather
-than a fake success.
+See [`/verification/`](./verification/) for the skill verification matrix
+(including how to verify skill discovery with Copilot CLI and OpenCode) and
+manual architecture-verification steps (including a worked example of the
+instruction hierarchy in practice).
 
 ## Scope
 
