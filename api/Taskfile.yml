@@ -1,0 +1,21 @@
+version: "3"
+
+tasks:
+  lint:
+    desc: Lint the OpenAPI contract
+    cmds:
+      - 'echo "api:lint — not implemented yet: openapi.yaml does not exist (Session 2)"; exit 1'
+    status:
+      - test -f openapi.yaml
+
+  generate:
+    desc: Regenerate downstream Go/TypeScript artifacts from the OpenAPI contract
+    deps: [lint]
+    cmds:
+      - 'echo "api:generate — not implemented yet (Session 2)"; exit 1'
+
+  validate:
+    desc: Validate the API contract (lint + compatibility + generation freshness)
+    cmds:
+      - task: lint
+      - 'echo "api:validate — not implemented yet (Session 2)"; exit 1'

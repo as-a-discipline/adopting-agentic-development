@@ -1,0 +1,42 @@
+version: "3"
+
+# Root Taskfile — composes component Taskfiles. It does not reimplement any
+# component's build/test/lint/generate logic; each component owns that.
+# `task validate` is the canonical repository-level validation entry point.
+
+includes:
+  api:
+    taskfile: ./api/Taskfile.yml
+    dir: ./api
+  service:
+    taskfile: ./service/Taskfile.yml
+    dir: ./service
+  web:
+    taskfile: ./web/Taskfile.yml
+    dir: ./web
+  compose:
+    taskfile: ./deploy/compose/Taskfile.yml
+    dir: ./deploy/compose
+  helm:
+    taskfile: ./deploy/helm/Taskfile.yml
+    dir: ./deploy/helm
+
+tasks:
+  default:
+    cmds:
+      - task --list-all
+
+  structure:validate:
+    desc: Validate repository structure (AGENTS.md/SKILL.md/Taskfile presence, skill frontmatter)
+    cmds:
+      - ./scripts/validate-structure.sh
+
+  validate:
+    desc: Run full repository validation across all components (canonical entry point)
+    cmds:
+      - task: structure:validate
+      - task: api:validate
+      - task: service:validate
+      - task: web:validate
+      - task: compose:validate
+      - task: helm:validate

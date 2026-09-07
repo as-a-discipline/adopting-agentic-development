@@ -1,0 +1,35 @@
+version: "3"
+
+tasks:
+  up:
+    desc: Start the Compose integration environment
+    cmds:
+      - 'echo "compose:up — not implemented yet: no compose file (Session 3)"; exit 1'
+    status:
+      - test -f docker-compose.yml
+
+  down:
+    desc: Stop the Compose integration environment
+    cmds:
+      - 'echo "compose:down — not implemented yet (Session 3)"; exit 1'
+    status:
+      - test -f docker-compose.yml
+
+  logs:
+    desc: Show logs from the Compose integration environment
+    cmds:
+      - 'echo "compose:logs — not implemented yet (Session 3)"; exit 1'
+    status:
+      - test -f docker-compose.yml
+
+  test:
+    desc: Run deterministic integration tests against the Compose stack
+    cmds:
+      - 'echo "compose:test — not implemented yet (Session 3)"; exit 1'
+    status:
+      - test -f docker-compose.yml
+
+  validate:
+    desc: Validate the Compose integration environment
+    cmds:
+      - task: test

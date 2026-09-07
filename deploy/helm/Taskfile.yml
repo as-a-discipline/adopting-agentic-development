@@ -1,0 +1,22 @@
+version: "3"
+
+tasks:
+  lint:
+    desc: Run Helm lint against the chart
+    cmds:
+      - 'echo "helm:lint — not implemented yet: no chart (Session 3)"; exit 1'
+    status:
+      - test -f Chart.yaml
+
+  template:
+    desc: Render chart templates
+    cmds:
+      - 'echo "helm:template — not implemented yet (Session 3)"; exit 1'
+    status:
+      - test -f Chart.yaml
+
+  validate:
+    desc: Lint, render, and statically validate the chart
+    cmds:
+      - task: lint
+      - task: template

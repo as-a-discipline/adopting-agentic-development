@@ -1,0 +1,38 @@
+version: "3"
+
+tasks:
+  generate:
+    desc: Regenerate the TypeScript API client from the OpenAPI contract
+    cmds:
+      - 'echo "web:generate — not implemented yet: no package.json (Session 3)"; exit 1'
+    status:
+      - test -f package.json
+
+  lint:
+    desc: Lint the web application
+    cmds:
+      - 'echo "web:lint — not implemented yet (Session 3)"; exit 1'
+    status:
+      - test -f package.json
+
+  test:
+    desc: Run web application tests
+    cmds:
+      - 'echo "web:test — not implemented yet (Session 3)"; exit 1'
+    status:
+      - test -f package.json
+
+  build:
+    desc: Build the web application
+    cmds:
+      - 'echo "web:build — not implemented yet (Session 3)"; exit 1'
+    status:
+      - test -f package.json
+
+  validate:
+    desc: Run all deterministic checks required to consider the web app valid
+    cmds:
+      - task: generate
+      - task: lint
+      - task: test
+      - task: build

@@ -1,0 +1,46 @@
+version: "3"
+
+tasks:
+  generate:
+    desc: Regenerate Go server types/interfaces from the OpenAPI contract
+    cmds:
+      - 'echo "service:generate — not implemented yet: no source Go module (Session 2)"; exit 1'
+    status:
+      - test -f go.mod
+
+  fmt:
+    desc: Format Go source
+    cmds:
+      - 'echo "service:fmt — not implemented yet (Session 2)"; exit 1'
+    status:
+      - test -f go.mod
+
+  lint:
+    desc: Run Go static analysis
+    cmds:
+      - 'echo "service:lint — not implemented yet (Session 2)"; exit 1'
+    status:
+      - test -f go.mod
+
+  test:
+    desc: Run Go unit/contract tests
+    cmds:
+      - 'echo "service:test — not implemented yet (Session 2)"; exit 1'
+    status:
+      - test -f go.mod
+
+  build:
+    desc: Build the Go service binary/image
+    cmds:
+      - 'echo "service:build — not implemented yet (Session 2)"; exit 1'
+    status:
+      - test -f go.mod
+
+  validate:
+    desc: Run all deterministic checks required to consider the service valid
+    cmds:
+      - task: generate
+      - task: fmt
+      - task: lint
+      - task: test
+      - task: build
