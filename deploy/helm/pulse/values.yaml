@@ -1,0 +1,27 @@
+# Default values for the pulse chart.
+# Image names/tags, replica counts, and app configuration are driven entirely
+# from here — no environment-specific values are hardcoded in templates.
+
+service:
+  name: pulse-service
+  image:
+    repository: pulse-service
+    tag: latest
+    pullPolicy: IfNotPresent
+  replicaCount: 1
+  port: 8080
+  # JSON array of {id,name,url} seeding the monitored services list. Left
+  # empty by default (falls back to the service's built-in placeholder seed);
+  # set this to point at real targets for a given environment.
+  seedServicesJSON: ""
+  resources: {}
+
+web:
+  name: pulse-web
+  image:
+    repository: pulse-web
+    tag: latest
+    pullPolicy: IfNotPresent
+  replicaCount: 1
+  port: 80
+  resources: {}

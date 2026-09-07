@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.service.name }}
+  labels:
+    {{- include "pulse.labels" . | nindent 4 }}
+    {{- include "pulse.service.selectorLabels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.service.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "pulse.service.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "pulse.labels" . | nindent 8 }}
+        {{- include "pulse.service.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: {{ .Values.service.name }}
+          image: "{{ .Values.service.image.repository }}:{{ .Values.service.image.tag }}"
+          imagePullPolicy: {{ .Values.service.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.port }}
+          env:
+            {{- if .Values.service.seedServicesJSON }}
+            - name: PULSE_SEED_SERVICES_JSON
+              value: {{ .Values.service.seedServicesJSON | quote }}
+            {{- end }}
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.service.resources | nindent 12 }}
