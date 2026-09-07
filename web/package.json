@@ -1,0 +1,7 @@
+{
+  "name": "pulse-web",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Pulse web app. No npm dependencies by design — built and tested using Node's built-in TypeScript type-stripping (node:module stripTypeScriptTypes) and built-in test runner (node:test). See AGENTS.md for the rationale."
+}

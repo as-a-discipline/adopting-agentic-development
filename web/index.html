@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pulse</title>
+    <link rel="stylesheet" href="./src/style.css" />
+  </head>
+  <body>
+    <div id="app"></div>
+    <!-- Overridden by the Compose environment to point at the pulse-service
+         container; defaults to same-origin "/api/v1" when absent. -->
+    <script>
+      window.PULSE_API_BASE_URL = window.PULSE_API_BASE_URL || undefined;
+    </script>
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>
+

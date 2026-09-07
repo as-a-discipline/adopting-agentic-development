@@ -1,0 +1,77 @@
+:root {
+  color-scheme: light dark;
+  font-family: system-ui, sans-serif;
+}
+
+body {
+  margin: 0;
+  padding: 1.5rem;
+  max-width: 960px;
+  margin-inline: auto;
+}
+
+header h1 {
+  margin-bottom: 0.25rem;
+}
+
+.summary {
+  color: #555;
+}
+
+.error {
+  color: #b00020;
+  font-weight: 600;
+}
+
+.service-list {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1rem;
+}
+
+.service-card {
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.service-card h2 {
+  margin: 0 0 0.25rem;
+  font-size: 1.1rem;
+}
+
+.service-card dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.15rem 0.5rem;
+  font-size: 0.9rem;
+  margin: 0.5rem 0;
+}
+
+.service-card dt {
+  font-weight: 600;
+}
+
+.service-card dd {
+  margin: 0;
+  word-break: break-all;
+}
+
+.service-card button {
+  margin-top: 0.5rem;
+}
+
+.status-healthy {
+  border-color: #2e7d32;
+}
+.status-degraded {
+  border-color: #e6a700;
+}
+.status-down {
+  border-color: #c62828;
+}
+.status-unknown {
+  border-color: #757575;
+}
