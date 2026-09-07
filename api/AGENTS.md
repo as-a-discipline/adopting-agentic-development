@@ -28,4 +28,14 @@ Cross-cutting decisions are in the root [`/adr/`](../adr/).
 task api:lint
 task api:validate
 task api:generate
+task api:breaking-changes
 ```
+
+`task api:breaking-changes` compares the current working tree against the
+current branch's last pushed commit (or the target mainline branch if
+nothing has been pushed yet) using either `oasdiff` (default,
+`TOOL=oasdiff`) or `pb33f/openapi-changes` (`TOOL=openapi-changes`) — both
+pinned containers, no host install required. This is a developer/reviewer
+tool for catching breaking changes before merge; it is separate from
+`task api:compat`'s static-baseline check, which is part of the always-on
+`task validate` gate.

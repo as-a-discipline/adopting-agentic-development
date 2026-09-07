@@ -25,11 +25,24 @@ part of `task validate`.
 ## 2. API Contract Must Lint and Stay Structurally Valid
 
 **Rule:** `api/openapi.yaml` must pass linting and remain a structurally valid
-OpenAPI document before generation or merge.
+OpenAPI document before generation or merge, and must not introduce breaking
+changes against the stored baseline without an explicit, reviewed baseline
+update.
 
-**Mechanism:** `task api:lint` (Redocly CLI, pinned container).
+**Mechanism:** `task api:lint` (Redocly CLI, pinned container) plus
+`task api:compat` (oasdiff, pinned container, `breaking --fail-on ERR`
+against `api/openapi.baseline.yaml`). A related but separate developer tool,
+`task api:breaking-changes`, compares the working tree against the last
+pushed commit or target mainline branch (via `oasdiff` or
+`pb33f/openapi-changes`) — useful before a baseline update is even proposed,
+but not itself part of the `task validate` gate.
 
-**Status:** enforced. Part of `task api:validate` / `task validate`.
+**Status:** enforced. Part of `task api:validate` / `task validate`. Note:
+`task api:compat`'s underlying `oasdiff breaking` call does not fail on its
+own — oasdiff only returns a non-zero exit code when `--fail-on ERR` (or
+`WARN`) is passed; this was a real gap found and fixed while adding
+`task api:breaking-changes` (verified by injecting a breaking change and
+confirming `task api:compat` failed only after adding the flag).
 
 ## 3. Component Boundaries
 

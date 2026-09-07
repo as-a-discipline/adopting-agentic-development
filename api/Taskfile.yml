@@ -3,6 +3,7 @@ version: "3"
 vars:
   REDOCLY_IMAGE: redocly/cli:1.25.3
   OASDIFF_IMAGE: tufin/oasdiff:v1.31.0
+  OPENAPI_CHANGES_IMAGE: pb33f/openapi-changes:v0.2.11
   GO_IMAGE: golang:1.23-alpine
   OAPI_CODEGEN_VERSION: v2.4.1
 
@@ -23,8 +24,25 @@ tasks:
           echo "This run establishes the baseline; it does not itself prove compatibility."
           cp openapi.yaml openapi.baseline.yaml
         else
-          docker run --rm -v "{{.TASKFILE_DIR}}":/spec -w /spec {{.OASDIFF_IMAGE}} breaking /spec/openapi.baseline.yaml /spec/openapi.yaml
+          docker run --rm -v "{{.TASKFILE_DIR}}":/spec -w /spec {{.OASDIFF_IMAGE}} breaking --fail-on ERR /spec/openapi.baseline.yaml /spec/openapi.yaml
         fi
+
+  breaking-changes:
+    desc: >-
+      Detect breaking changes between the current working tree and the
+      current branch's last pushed commit (or the target mainline branch if
+      nothing has been pushed yet). TOOL=oasdiff (default) or
+      TOOL=openapi-changes; pass an explicit ref as CLI_ARGS, e.g.
+      `task api:breaking-changes -- main`.
+    dir: "{{.TASKFILE_DIR}}/.."
+    vars:
+      TOOL: '{{.TOOL | default "oasdiff"}}'
+    cmds:
+      - >-
+        TOOL="{{.TOOL}}"
+        OASDIFF_IMAGE="{{.OASDIFF_IMAGE}}"
+        OPENAPI_CHANGES_IMAGE="{{.OPENAPI_CHANGES_IMAGE}}"
+        ./scripts/check-api-breaking-changes.sh {{.CLI_ARGS}}
 
   generate:
     desc: Regenerate downstream Go server types/interfaces from the OpenAPI contract

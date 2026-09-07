@@ -101,6 +101,7 @@ task hooks:install
 ```bash
 task api:lint
 task api:validate
+task api:breaking-changes   # compare working tree vs last pushed commit / mainline
 
 task service:test
 task service:validate
@@ -165,6 +166,22 @@ generated from it and must never be hand-edited — change the contract or
 generator configuration, then regenerate via `task *:generate`. A deterministic
 freshness check (regenerate to a temp location, diff against the committed tree)
 gates both `api:validate`/`service:validate` and `web:validate`.
+
+## Breaking-Change Detection
+
+`task api:breaking-changes` compares the current working tree against the
+current branch's last pushed commit (or the target mainline branch, when
+nothing has been pushed yet) and fails if it finds a breaking change —
+letting a reviewer catch API breakage before merge, not just against the
+static `api/openapi.baseline.yaml` snapshot checked by `task api:compat` (part
+of the `task validate` gate). Two pinned, containerized tools are supported,
+selected with `TOOL=`:
+
+```bash
+task api:breaking-changes                              # TOOL=oasdiff (default)
+task api:breaking-changes TOOL=openapi-changes          # pb33f/openapi-changes
+task api:breaking-changes -- main                       # explicit ref override
+```
 
 ## Guardrails
 
