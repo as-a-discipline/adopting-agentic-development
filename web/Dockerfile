@@ -8,7 +8,15 @@ WORKDIR /app
 COPY . .
 RUN node tools/build.mjs
 
-FROM nginx:1.27.5-alpine
+# Unprivileged variant: runs as a non-root user (see policies/README.md rule
+# 5, container/deployment quality) rather than the stock nginx:*-alpine image,
+# which runs its master process as root.
+FROM nginxinc/nginx-unprivileged:1.27.5-alpine
 COPY --from=build /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
-EXPOSE 80
+# Explicit even though the base image already defaults to this user — makes
+# the non-root runtime user verifiable directly from this Dockerfile (see
+# scripts/check-container-quality.sh / policies/README.md rule 5) without
+# needing to inspect the upstream base image's own Dockerfile.
+USER nginx
+EXPOSE 8080

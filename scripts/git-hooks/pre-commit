@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# Pulse local pre-commit hook (tracked source: scripts/git-hooks/pre-commit).
+#
+# This is a LOCAL-ONLY guardrail: the executable copy that git actually runs
+# lives at .git/hooks/pre-commit, which is never tracked by git and never
+# pushed anywhere — installing it is an explicit, local, opt-in step
+# (`task hooks:install`), not something that silently applies to every clone
+# or acts as a CI/CD mechanism (forbidden for this repo, see root AGENTS.md).
+#
+# Runs a FAST guardrail subset, not the full `task validate`:
+#   - task structure:validate  (repo structure/skill/Taskfile presence)
+#   - task policies:validate   (component boundaries, dependency governance,
+#                               container/deployment quality)
+#
+# It deliberately does NOT run api/service/web/compose/helm validation here —
+# those build containers, run test suites, and start a Compose stack, which
+# is too slow for a pre-commit gate. Run `task validate` yourself before
+# pushing for the full guarantee. Use `git commit --no-verify` to bypass this
+# hook when intentionally needed.
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+cd "$repo_root"
+
+echo "== pre-commit: task structure:validate =="
+task structure:validate
+
+echo ""
+echo "== pre-commit: task policies:validate =="
+task policies:validate
+
+echo ""
+echo "pre-commit: OK (fast guardrail subset passed; run 'task validate' for the full gate)."
