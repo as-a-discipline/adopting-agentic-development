@@ -1,0 +1,181 @@
+openapi: 3.0.3
+info:
+  title: Pulse API
+  version: "1.0.0"
+  description: |
+    Pulse is a tiny service-monitoring application. It knows about a small
+    collection of HTTP services, performs health checks against them,
+    normalizes the results, and exposes those results through this HTTP API.
+
+    Pulse has no database: all state is in-memory and may reset on restart.
+    This API reports current status only — it does not expose history.
+  contact:
+    name: Pulse (demo project)
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: /api/v1
+
+tags:
+  - name: services
+    description: Monitored services and their health status
+
+paths:
+  /services:
+    get:
+      operationId: listServices
+      summary: List all monitored services
+      description: Returns the current known status of every monitored service.
+      tags: [services]
+      responses:
+        "200":
+          description: A list of monitored services
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MonitoredService"
+              examples:
+                default:
+                  value:
+                    - id: "web-app"
+                      name: "Web App"
+                      url: "https://web-app.example.test/healthz"
+                      status: "healthy"
+                      lastChecked: "2026-09-07T14:00:00Z"
+                      responseTimeMs: 42
+                    - id: "billing-api"
+                      name: "Billing API"
+                      url: "https://billing-api.example.test/healthz"
+                      status: "degraded"
+                      lastChecked: "2026-09-07T14:00:05Z"
+                      responseTimeMs: 1800
+                      message: "Response time above healthy threshold"
+
+  /services/{id}:
+    get:
+      operationId: getService
+      summary: Get a single monitored service by ID
+      tags: [services]
+      parameters:
+        - $ref: "#/components/parameters/ServiceId"
+      responses:
+        "200":
+          description: The monitored service
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MonitoredService"
+        "404":
+          description: No monitored service exists with the given ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                notFound:
+                  value:
+                    code: "service_not_found"
+                    message: "No monitored service exists with id 'unknown-service'"
+
+  /services/{id}/check:
+    post:
+      operationId: checkService
+      summary: Perform an immediate health check for a monitored service
+      description: |
+        Performs an immediate HTTP health check against the service's URL and
+        returns the resulting status. This does not persist history; it only
+        updates and returns the service's current in-memory status.
+      tags: [services]
+      parameters:
+        - $ref: "#/components/parameters/ServiceId"
+      responses:
+        "200":
+          description: The resulting service status after the check
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MonitoredService"
+        "404":
+          description: No monitored service exists with the given ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  parameters:
+    ServiceId:
+      name: id
+      in: path
+      required: true
+      description: The monitored service's identifier
+      schema:
+        type: string
+      example: "web-app"
+
+  schemas:
+    ServiceStatus:
+      type: string
+      description: |
+        Normalized health status of a monitored service.
+        * `healthy` — last check succeeded within the healthy response-time threshold.
+        * `degraded` — last check succeeded but was slower than the healthy threshold.
+        * `down` — last check failed (network error or unhealthy HTTP response).
+        * `unknown` — the service has not been checked yet.
+      enum: [healthy, degraded, down, unknown]
+
+    MonitoredService:
+      type: object
+      description: A single monitored HTTP service and its current status.
+      required: [id, name, url, status]
+      properties:
+        id:
+          type: string
+          description: Stable identifier for the service
+          example: "web-app"
+        name:
+          type: string
+          description: Human-readable service name
+          example: "Web App"
+        url:
+          type: string
+          format: uri
+          description: URL checked to determine service health
+          example: "https://web-app.example.test/healthz"
+        status:
+          $ref: "#/components/schemas/ServiceStatus"
+        lastChecked:
+          type: string
+          format: date-time
+          nullable: true
+          description: Timestamp of the last check, or null if never checked
+          example: "2026-09-07T14:00:00Z"
+        responseTimeMs:
+          type: integer
+          format: int64
+          nullable: true
+          description: Response time of the last check in milliseconds, or null if never checked
+          example: 42
+        message:
+          type: string
+          nullable: true
+          description: Optional human-readable detail, e.g. explaining a degraded/down status
+          example: "Response time above healthy threshold"
+
+    ErrorResponse:
+      type: object
+      description: Standard error response shape.
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          description: Machine-readable error code
+          example: "service_not_found"
+        message:
+          type: string
+          description: Human-readable error detail
+          example: "No monitored service exists with id 'unknown-service'"

@@ -1,21 +1,51 @@
 version: "3"
 
+vars:
+  REDOCLY_IMAGE: redocly/cli:1.25.3
+  OASDIFF_IMAGE: tufin/oasdiff:v1.31.0
+  GO_IMAGE: golang:1.23-alpine
+  OAPI_CODEGEN_VERSION: v2.4.1
+
 tasks:
   lint:
-    desc: Lint the OpenAPI contract
+    desc: Lint the OpenAPI contract (Redocly CLI, pinned container)
     cmds:
-      - 'echo "api:lint — not implemented yet: openapi.yaml does not exist (Session 2)"; exit 1'
-    status:
-      - test -f openapi.yaml
+      - docker run --rm -v "{{.PWD}}":/spec -w /spec {{.REDOCLY_IMAGE}} lint openapi.yaml
+    vars:
+      PWD:
+        sh: pwd
+
+  compat:
+    desc: Check the contract for breaking changes against the stored baseline (oasdiff, pinned container)
+    cmds:
+      - |
+        if [ ! -f openapi.baseline.yaml ]; then
+          echo "No compatibility baseline found — bootstrapping openapi.baseline.yaml from the current contract."
+          echo "This run establishes the baseline; it does not itself prove compatibility."
+          cp openapi.yaml openapi.baseline.yaml
+        else
+          docker run --rm -v "$(pwd)":/spec -w /spec {{.OASDIFF_IMAGE}} breaking /spec/openapi.baseline.yaml /spec/openapi.yaml
+        fi
 
   generate:
-    desc: Regenerate downstream Go/TypeScript artifacts from the OpenAPI contract
+    desc: Regenerate downstream Go server types/interfaces from the OpenAPI contract
     deps: [lint]
     cmds:
-      - 'echo "api:generate — not implemented yet (Session 2)"; exit 1'
+      - mkdir -p ../service/generated
+      - >
+        docker run --rm
+        -v "{{.REPO_ROOT}}":/src -w /src/api
+        {{.GO_IMAGE}}
+        sh -c "go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@{{.OAPI_CODEGEN_VERSION}} -generate types,std-http,spec -package generated openapi.yaml > ../service/generated/api.gen.go.tmp && mv ../service/generated/api.gen.go.tmp ../service/generated/api.gen.go"
+    vars:
+      REPO_ROOT:
+        sh: cd .. && pwd
 
   validate:
     desc: Validate the API contract (lint + compatibility + generation freshness)
     cmds:
       - task: lint
-      - 'echo "api:validate — not implemented yet (Session 2)"; exit 1'
+      - task: compat
+      - task: generate
+      - ../scripts/check-generated-fresh.sh service/generated ..
+

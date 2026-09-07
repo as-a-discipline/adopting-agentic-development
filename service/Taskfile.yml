@@ -1,40 +1,51 @@
 version: "3"
 
+vars:
+  GO_IMAGE: golang:1.23-alpine
+  GOLANGCI_LINT_IMAGE: golangci/golangci-lint:v1.64.8
+
 tasks:
   generate:
-    desc: Regenerate Go server types/interfaces from the OpenAPI contract
+    desc: Regenerate Go server types/interfaces from the OpenAPI contract (delegates to api:generate)
     cmds:
-      - 'echo "service:generate — not implemented yet: no source Go module (Session 2)"; exit 1'
-    status:
-      - test -f go.mod
+      - task -d .. api:generate
 
   fmt:
-    desc: Format Go source
+    desc: Format Go source (gofmt, pinned container)
     cmds:
-      - 'echo "service:fmt — not implemented yet (Session 2)"; exit 1'
-    status:
-      - test -f go.mod
+      - >
+        docker run --rm -v "{{.PWD}}":/src -w /src {{.GO_IMAGE}}
+        sh -c "gofmt -l -w ./cmd ./internal && test -z \"$(gofmt -l ./cmd ./internal)\""
+    vars:
+      PWD:
+        sh: pwd
 
   lint:
-    desc: Run Go static analysis
+    desc: Run Go static analysis (golangci-lint, pinned container)
     cmds:
-      - 'echo "service:lint — not implemented yet (Session 2)"; exit 1'
-    status:
-      - test -f go.mod
+      - docker run --rm -v "{{.PWD}}":/src -w /src {{.GOLANGCI_LINT_IMAGE}} golangci-lint run ./...
+    vars:
+      PWD:
+        sh: pwd
 
   test:
-    desc: Run Go unit/contract tests
+    desc: Run Go unit/contract tests (pinned container)
     cmds:
-      - 'echo "service:test — not implemented yet (Session 2)"; exit 1'
-    status:
-      - test -f go.mod
+      - docker run --rm -v "{{.PWD}}":/src -w /src {{.GO_IMAGE}} go test ./... -v -cover
+    vars:
+      PWD:
+        sh: pwd
 
   build:
-    desc: Build the Go service binary/image
+    desc: Build the Go service binary (pinned container)
     cmds:
-      - 'echo "service:build — not implemented yet (Session 2)"; exit 1'
-    status:
-      - test -f go.mod
+      - mkdir -p bin
+      - >
+        docker run --rm -v "{{.PWD}}":/src -w /src {{.GO_IMAGE}}
+        go build -o bin/pulse ./cmd/pulse
+    vars:
+      PWD:
+        sh: pwd
 
   validate:
     desc: Run all deterministic checks required to consider the service valid
