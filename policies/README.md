@@ -31,13 +31,19 @@ update.
 
 **Mechanism:** `task api:lint` (Redocly CLI, pinned container) plus
 `task api:compat` (oasdiff, pinned container, `breaking --fail-on ERR`
-against `api/openapi.baseline.yaml`). A related but separate developer tool,
-`task api:breaking-changes`, compares the working tree against the last
-pushed commit or target mainline branch (via `oasdiff` or
-`pb33f/openapi-changes`) — useful before a baseline update is even proposed,
-but not itself part of the `task validate` gate.
+against `api/openapi.baseline.yaml`) plus `task api:breaking-changes`
+(oasdiff or `pb33f/openapi-changes`, pinned containers), which compares the
+working tree against the current branch's last pushed commit or the target
+mainline branch. `task api:breaking-changes` is also run directly by the
+local pre-commit hook (`task hooks:install`), so a breaking change is caught
+at commit time, not only at `task validate` time.
 
-**Status:** enforced. Part of `task api:validate` / `task validate`. Note:
+**Status:** enforced. Both `api:compat` and `api:breaking-changes` are part
+of `task api:validate` / `task validate`, and `api:breaking-changes` is also
+part of the local pre-commit hook. Real proof (a genuine breaking change
+introduced, detected, and blocking both `task validate` and a real
+`git commit`) is recorded in
+[`/docs/api-breaking-changes.md`](../docs/api-breaking-changes.md). Note:
 `task api:compat`'s underlying `oasdiff breaking` call does not fail on its
 own — oasdiff only returns a non-zero exit code when `--fail-on ERR` (or
 `WARN`) is passed; this was a real gap found and fixed while adding

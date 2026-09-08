@@ -8,15 +8,22 @@
 # or acts as a CI/CD mechanism (forbidden for this repo, see root AGENTS.md).
 #
 # Runs a FAST guardrail subset, not the full `task validate`:
-#   - task structure:validate  (repo structure/skill/Taskfile presence)
-#   - task policies:validate   (component boundaries, dependency governance,
-#                               container/deployment quality)
+#   - task structure:validate     (repo structure/skill/Taskfile presence)
+#   - task policies:validate      (component boundaries, dependency
+#                                  governance, container/deployment quality)
+#   - task api:breaking-changes   (breaking API changes vs the last pushed
+#                                  commit / target mainline branch — this is
+#                                  the same check wired into task api:validate
+#                                  / task validate; it is fast — no
+#                                  container build or Compose stack required —
+#                                  so it is safe to run on every commit and a
+#                                  breaking change here blocks the commit)
 #
-# It deliberately does NOT run api/service/web/compose/helm validation here —
-# those build containers, run test suites, and start a Compose stack, which
-# is too slow for a pre-commit gate. Run `task validate` yourself before
-# pushing for the full guarantee. Use `git commit --no-verify` to bypass this
-# hook when intentionally needed.
+# It deliberately does NOT run the rest of api/service/web/compose/helm
+# validation here — those build containers, run test suites, and start a
+# Compose stack, which is too slow for a pre-commit gate. Run `task validate`
+# yourself before pushing for the full guarantee. Use `git commit --no-verify`
+# to bypass this hook when intentionally needed.
 set -euo pipefail
 
 repo_root="$(git rev-parse --show-toplevel)"
@@ -28,6 +35,10 @@ task structure:validate
 echo ""
 echo "== pre-commit: task policies:validate =="
 task policies:validate
+
+echo ""
+echo "== pre-commit: task api:breaking-changes =="
+task api:breaking-changes
 
 echo ""
 echo "pre-commit: OK (fast guardrail subset passed; run 'task validate' for the full gate)."

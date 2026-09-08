@@ -35,7 +35,9 @@ task api:breaking-changes
 current branch's last pushed commit (or the target mainline branch if
 nothing has been pushed yet) using either `oasdiff` (default,
 `TOOL=oasdiff`) or `pb33f/openapi-changes` (`TOOL=openapi-changes`) — both
-pinned containers, no host install required. This is a developer/reviewer
-tool for catching breaking changes before merge; it is separate from
-`task api:compat`'s static-baseline check, which is part of the always-on
-`task validate` gate.
+pinned containers, no host install required. It is a real step in
+`task api:validate` / `task validate` (in addition to, not a replacement
+for, `task api:compat`'s static-baseline check) and is also run directly by
+the local pre-commit hook — a breaking change blocks both. See
+[`/docs/api-breaking-changes.md`](../docs/api-breaking-changes.md) for
+details and captured proof.

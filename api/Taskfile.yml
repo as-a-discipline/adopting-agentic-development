@@ -57,11 +57,12 @@ tasks:
         sh -c "go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@{{.OAPI_CODEGEN_VERSION}} -generate types,std-http,spec -package generated openapi.yaml > ../service/generated/api.gen.go.tmp && mv ../service/generated/api.gen.go.tmp ../service/generated/api.gen.go"
 
   validate:
-    desc: Validate the API contract (lint + compatibility + generation freshness)
+    desc: Validate the API contract (lint + compatibility + breaking-change detection + generation freshness)
     dir: "{{.TASKFILE_DIR}}"
     cmds:
       - task: lint
       - task: compat
+      - task: breaking-changes
       - task: generate
       - "{{.TASKFILE_DIR}}/../scripts/check-generated-fresh.sh service/generated {{.TASKFILE_DIR}}/.."
 

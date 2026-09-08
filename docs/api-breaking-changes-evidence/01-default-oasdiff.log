@@ -1,0 +1,13 @@
+### Scenario 1: default ref resolution (task api:breaking-changes, no args, TOOL=oasdiff default)
+$ task api:breaking-changes
+task: [api:breaking-changes] TOOL="oasdiff" OASDIFF_IMAGE="tufin/oasdiff:v1.31.0" OPENAPI_CHANGES_IMAGE="pb33f/openapi-changes:v0.2.11" ./scripts/check-api-breaking-changes.sh 
+== api:breaking-changes — comparing 'origin/main' (target mainline branch (no upstream configured for this branch)) -> working tree ==
+tool: oasdiff
+1 changes: 1 error, 0 warning, 0 info
+error	[api-path-removed-without-deprecation] at /old/old-openapi.yaml
+	in API POST /services/{id}/check
+		api path removed without deprecation
+
+
+task: Failed to run task "api:breaking-changes": exit status 1
+EXIT=201

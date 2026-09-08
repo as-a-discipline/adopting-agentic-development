@@ -171,17 +171,23 @@ gates both `api:validate`/`service:validate` and `web:validate`.
 
 `task api:breaking-changes` compares the current working tree against the
 current branch's last pushed commit (or the target mainline branch, when
-nothing has been pushed yet) and fails if it finds a breaking change —
-letting a reviewer catch API breakage before merge, not just against the
-static `api/openapi.baseline.yaml` snapshot checked by `task api:compat` (part
-of the `task validate` gate). Two pinned, containerized tools are supported,
-selected with `TOOL=`:
+nothing has been pushed yet) and fails if it finds a breaking change. It is
+now a real step in `task api:validate` / `task validate` (between `compat`
+and `generate`), and it's also run by the local pre-commit hook — a breaking
+API change blocks both the validation gate and the commit itself, without
+`--no-verify`. Two pinned, containerized tools are supported, selected with
+`TOOL=`:
 
 ```bash
 task api:breaking-changes                              # TOOL=oasdiff (default)
 task api:breaking-changes TOOL=openapi-changes          # pb33f/openapi-changes
 task api:breaking-changes -- main                       # explicit ref override
 ```
+
+See [`docs/api-breaking-changes.md`](./docs/api-breaking-changes.md) for how
+it works in detail, plus real captured proof (a genuine breaking change
+introduced, detected by both tools, and blocking `task validate` and a real
+`git commit`).
 
 ## Guardrails
 
@@ -204,9 +210,11 @@ task api:breaking-changes -- main                       # explicit ref override
   system as deployed (healthy/degraded/down behavior end-to-end), not just in
   isolation.
 * **Local pre-commit hook** (opt-in, local-only) — `task hooks:install` installs
-  a fast guardrail subset (`task structure:validate` + `task policies:validate`)
-  as `.git/hooks/pre-commit`. It is never tracked by git or pushed; it is not a
-  CI/CD mechanism, just a fast local check before the full `task validate` gate.
+  a fast guardrail subset (`task structure:validate` + `task policies:validate`
+  + `task api:breaking-changes`) as `.git/hooks/pre-commit`. It is never
+  tracked by git or pushed; it is not a CI/CD mechanism, just a fast local
+  check before the full `task validate` gate — a breaking API change is
+  blocked at commit time, not just at `task validate` time.
 
 See [`policies/README.md`](./policies/README.md) for the full rule set, each
 rule's exact enforcement command, and its status.

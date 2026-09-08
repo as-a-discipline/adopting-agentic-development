@@ -1,0 +1,13 @@
+### Scenario 2: default ref resolution (task api:breaking-changes TOOL=openapi-changes)
+$ task api:breaking-changes TOOL=openapi-changes
+task: [api:breaking-changes] TOOL="openapi-changes" OASDIFF_IMAGE="tufin/oasdiff:v1.31.0" OPENAPI_CHANGES_IMAGE="pb33f/openapi-changes:v0.2.11" ./scripts/check-api-breaking-changes.sh 
+== api:breaking-changes — comparing 'origin/main' (target mainline branch (no upstream configured for this branch)) -> working tree ==
+tool: openapi-changes
+Total changes: 1; breaking: 1
+
+Breaking changes:
+  - $.paths./services/{id}/check: object_removed ('/services/{id}/check' -> None)
+
+FAIL: 1 breaking change(s) detected.
+task: Failed to run task "api:breaking-changes": exit status 1
+EXIT=201
