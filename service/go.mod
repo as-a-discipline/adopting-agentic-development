@@ -5,6 +5,7 @@ go 1.23
 require (
 	github.com/getkin/kin-openapi v0.127.0
 	github.com/oapi-codegen/runtime v1.1.1
+	github.com/santhosh-tekuri/jsonschema/v5 v5.3.1
 )
 
 require (

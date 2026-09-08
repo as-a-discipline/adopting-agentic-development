@@ -12,23 +12,59 @@ import (
 
 	"pulse/generated"
 	"pulse/internal/monitoring"
+	"pulse/internal/plugins"
 )
 
 // Handler implements generated.ServerInterface.
 type Handler struct {
-	checker *monitoring.Checker
-	logger  *slog.Logger
+	checker  *monitoring.Checker
+	registry *plugins.Registry
+	logger   *slog.Logger
 }
 
-// NewHandler builds a Handler backed by the given Checker.
-func NewHandler(checker *monitoring.Checker, logger *slog.Logger) *Handler {
+// NewHandler builds a Handler backed by the given Checker and plugin
+// Registry (the latter powers GET /plugin-types — see
+// ../../adr/0002-factory-based-plugin-model-for-checks.md and
+// ../../../api/adr/0002-plugin-type-discovery-endpoint.md).
+func NewHandler(checker *monitoring.Checker, registry *plugins.Registry, logger *slog.Logger) *Handler {
 	if logger == nil {
 		logger = slog.Default()
 	}
-	return &Handler{checker: checker, logger: logger}
+	return &Handler{checker: checker, registry: registry, logger: logger}
 }
 
 var _ generated.ServerInterface = (*Handler)(nil)
+
+// ListPluginTypes implements GET /plugin-types.
+func (h *Handler) ListPluginTypes(w http.ResponseWriter, r *http.Request) {
+	descriptors := h.registry.List()
+	out := make([]generated.PluginType, 0, len(descriptors))
+	for _, d := range descriptors {
+		var inputSchema, outputSchema map[string]interface{}
+		if err := json.Unmarshal(d.InputSchema, &inputSchema); err != nil {
+			h.logger.Error("invalid plugin input schema", "type", d.Type, "error", err)
+			writeJSON(w, http.StatusInternalServerError, generated.ErrorResponse{
+				Code:    "internal_error",
+				Message: "an unexpected error occurred",
+			})
+			return
+		}
+		if err := json.Unmarshal(d.OutputSchema, &outputSchema); err != nil {
+			h.logger.Error("invalid plugin output schema", "type", d.Type, "error", err)
+			writeJSON(w, http.StatusInternalServerError, generated.ErrorResponse{
+				Code:    "internal_error",
+				Message: "an unexpected error occurred",
+			})
+			return
+		}
+		out = append(out, generated.PluginType{
+			Type:         d.Type,
+			InputSchema:  inputSchema,
+			OutputSchema: outputSchema,
+		})
+	}
+	writeJSON(w, http.StatusOK, out)
+}
 
 // ListServices implements GET /services.
 func (h *Handler) ListServices(w http.ResponseWriter, r *http.Request) {

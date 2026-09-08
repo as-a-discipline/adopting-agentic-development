@@ -9,14 +9,23 @@ import (
 	"pulse/generated"
 	"pulse/internal/config"
 	"pulse/internal/monitoring"
+	"pulse/internal/plugins"
+	"pulse/internal/plugins/httpcheck"
 )
+
+func newTestRegistry() *plugins.Registry {
+	r := plugins.NewRegistry()
+	r.Register(httpcheck.Type, httpcheck.Factory)
+	return r
+}
 
 func newTestServer(t *testing.T) http.Handler {
 	t.Helper()
+	registry := newTestRegistry()
 	checker := monitoring.NewChecker([]config.Service{
 		{ID: "svc-a", Name: "Service A", URL: "http://example.invalid"},
-	}, nil)
-	handler := NewHandler(checker, nil)
+	}, registry)
+	handler := NewHandler(checker, registry, nil)
 	return generated.Handler(handler)
 }
 
@@ -102,5 +111,36 @@ func TestCheckService_Found(t *testing.T) {
 	// example.invalid never resolves, so the check must report "down".
 	if svc.Status != generated.Down {
 		t.Errorf("expected status %q after checking an unreachable URL, got %q", generated.Down, svc.Status)
+	}
+}
+
+func TestListPluginTypes(t *testing.T) {
+	srv := newTestServer(t)
+
+	req := httptest.NewRequest(http.MethodGet, "/plugin-types", nil)
+	rec := httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var types []generated.PluginType
+	if err := json.Unmarshal(rec.Body.Bytes(), &types); err != nil {
+		t.Fatalf("invalid JSON response: %v", err)
+	}
+	if len(types) != 1 || types[0].Type != "http" {
+		t.Fatalf("expected exactly one plugin type 'http', got %+v", types)
+	}
+	if types[0].InputSchema == nil {
+		t.Error("expected a non-nil inputSchema")
+	}
+	if types[0].OutputSchema == nil {
+		t.Error("expected a non-nil outputSchema")
+	}
+	// Spot-check the schema actually describes the "http" plugin's shape.
+	props, ok := types[0].InputSchema["properties"].(map[string]interface{})
+	if !ok || props["url"] == nil {
+		t.Errorf("expected inputSchema.properties.url to be present, got %+v", types[0].InputSchema)
 	}
 }

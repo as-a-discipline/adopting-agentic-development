@@ -46,6 +46,16 @@ export interface MonitoredService {
      */
     url: string;
     /**
+     * Identifies which check-plugin type implements this service's
+     * health check. Resolve against `GET /plugin-types` for that
+     * plugin's input/output schema. See
+     * `service/adr/0002-factory-based-plugin-model-for-checks.md`.
+     * 
+     * @type {string}
+     * @memberof MonitoredService
+     */
+    type: string;
+    /**
      * 
      * @type {ServiceStatus}
      * @memberof MonitoredService
@@ -80,6 +90,7 @@ export function instanceOfMonitoredService(value: object): value is MonitoredSer
     if (!('id' in value) || value['id'] === undefined) return false;
     if (!('name' in value) || value['name'] === undefined) return false;
     if (!('url' in value) || value['url'] === undefined) return false;
+    if (!('type' in value) || value['type'] === undefined) return false;
     if (!('status' in value) || value['status'] === undefined) return false;
     return true;
 }
@@ -97,6 +108,7 @@ export function MonitoredServiceFromJSONTyped(json: any, ignoreDiscriminator: bo
         'id': json['id'],
         'name': json['name'],
         'url': json['url'],
+        'type': json['type'],
         'status': ServiceStatusFromJSON(json['status']),
         'lastChecked': json['lastChecked'] == null ? undefined : (new Date(json['lastChecked'])),
         'responseTimeMs': json['responseTimeMs'] == null ? undefined : json['responseTimeMs'],
@@ -118,6 +130,7 @@ export function MonitoredServiceToJSONTyped(value?: MonitoredService | null, ign
         'id': value['id'],
         'name': value['name'],
         'url': value['url'],
+        'type': value['type'],
         'status': ServiceStatusToJSON(value['status']),
         'lastChecked': value['lastChecked'] == null ? undefined : ((value['lastChecked'] as any).toISOString()),
         'responseTimeMs': value['responseTimeMs'],

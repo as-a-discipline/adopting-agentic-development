@@ -10,11 +10,28 @@ import (
 	"os"
 )
 
+// DefaultType is the check-plugin type assumed when a Service's Type is
+// empty — preserves compatibility with seed configurations written before
+// the factory-based plugin model (see
+// ../../adr/0002-factory-based-plugin-model-for-checks.md), which only ever
+// described an HTTP check.
+const DefaultType = "http"
+
 // Service is a monitored service's static configuration.
 type Service struct {
 	ID   string
 	Name string
 	URL  string
+
+	// Type selects which check-plugin implements this service's health
+	// check (see internal/plugins). Empty defaults to DefaultType.
+	Type string `json:"type,omitempty"`
+
+	// Config is the raw plugin-specific input configuration. Empty means
+	// "build the input from URL" — for the "http" plugin, that's
+	// {"url": URL} — so pre-existing seed configs (just id/name/url) keep
+	// working unchanged.
+	Config json.RawMessage `json:"config,omitempty"`
 }
 
 // seedEnvVar, when set to a JSON array of {"id","name","url"} objects,

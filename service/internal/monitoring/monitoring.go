@@ -1,68 +1,127 @@
 // Package monitoring implements Pulse's deterministic service health-check
-// behavior: seeded in-memory state, HTTP checks with explicit timeouts, and
-// status normalization. See ../../adr/0001-no-persistence-in-baseline.md —
-// there is no persistent store; state lives only for the process lifetime.
+// behavior: seeded in-memory state, plugin-based checks, and status
+// normalization. See ../../adr/0001-no-persistence-in-baseline.md — there
+// is no persistent store; state lives only for the process lifetime. See
+// ../../adr/0002-factory-based-plugin-model-for-checks.md — the actual
+// check mechanism for each service is a plugins.Plugin, resolved by type
+// from a *plugins.Registry, not a hardcoded HTTP call.
 package monitoring
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
-	"net/http"
 	"sync"
 	"time"
 
 	"pulse/generated"
 	"pulse/internal/config"
+	"pulse/internal/plugins"
 )
 
 // HealthyThreshold is the maximum response time for a successful check to be
 // considered "healthy" rather than "degraded". Kept simple and documented
 // here rather than made configurable, per the baseline's "keep it boring"
-// design principle.
+// design principle. Status normalization is a Pulse-level concept — it
+// applies uniformly across every plugin type, not something each plugin
+// implements itself.
 const HealthyThreshold = 300 * time.Millisecond
 
-// CheckTimeout bounds how long a single outbound health check may take.
-// Every outbound HTTP call Pulse makes honors this timeout and the caller's
-// context, per service/AGENTS.md.
+// CheckTimeout bounds how long a single check (i.e. a single Plugin.Check
+// call) may take. Every plugin must honor the context passed to Check.
 const CheckTimeout = 5 * time.Second
 
 // ErrNotFound indicates no monitored service exists with the requested ID.
 var ErrNotFound = errors.New("service not found")
 
-// Checker holds the current in-memory status of a fixed set of monitored
-// services and knows how to perform an HTTP health check against any of
-// them. Checker is safe for concurrent use.
-type Checker struct {
-	client *http.Client
-
-	mu    sync.RWMutex
-	state map[string]generated.MonitoredService
-	order []string // preserves deterministic seed order for listing
+// pluginOutput mirrors the generic {success, elapsedMs, statusCode,
+// message} shape every plugin's output conforms to. Plugin-specific fields
+// beyond these four are not currently interpreted by the Checker — see
+// ../../adr/0002-factory-based-plugin-model-for-checks.md's consequences.
+type pluginOutput struct {
+	Success    bool   `json:"success"`
+	StatusCode int    `json:"statusCode,omitempty"`
+	ElapsedMs  int64  `json:"elapsedMs"`
+	Message    string `json:"message,omitempty"`
 }
 
-// NewChecker builds a Checker seeded with the given services. Every service
-// starts in the "unknown" status until its first check. A nil client uses a
-// default *http.Client configured with CheckTimeout.
-func NewChecker(services []config.Service, client *http.Client) *Checker {
-	if client == nil {
-		client = &http.Client{Timeout: CheckTimeout}
-	}
+// checkEntry holds everything the Checker needs to run a single service's
+// check: the constructed Plugin instance and its pre-built,
+// schema-validated input.
+type checkEntry struct {
+	plugin plugins.Plugin
+	input  json.RawMessage
+}
+
+// Checker holds the current in-memory status of a fixed set of monitored
+// services and knows how to perform a check against any of them by
+// delegating to that service's check-plugin. Checker is safe for concurrent
+// use.
+type Checker struct {
+	mu      sync.RWMutex
+	state   map[string]generated.MonitoredService
+	order   []string // preserves deterministic seed order for listing
+	entries map[string]checkEntry
+}
+
+// NewChecker builds a Checker seeded with the given services, resolving
+// each service's check-plugin via registry (falling back to
+// config.DefaultType when a service's Type is empty). Every service starts
+// in the "unknown" status until its first check.
+//
+// NewChecker panics if a service names an unregistered plugin type or
+// supplies input that fails that plugin's InputSchema — both are
+// configuration defects that should fail fast at startup, not surface as a
+// confusing runtime 404/500 on first check.
+func NewChecker(services []config.Service, registry *plugins.Registry) *Checker {
 	c := &Checker{
-		client: client,
-		state:  make(map[string]generated.MonitoredService, len(services)),
-		order:  make([]string, 0, len(services)),
+		state:   make(map[string]generated.MonitoredService, len(services)),
+		order:   make([]string, 0, len(services)),
+		entries: make(map[string]checkEntry, len(services)),
 	}
 	for _, s := range services {
+		typeName := s.Type
+		if typeName == "" {
+			typeName = config.DefaultType
+		}
+
+		plugin, err := registry.New(typeName)
+		if err != nil {
+			panic(fmt.Sprintf("monitoring: service %q: %v", s.ID, err))
+		}
+
+		input := s.Config
+		if len(input) == 0 {
+			input = buildDefaultInput(s)
+		}
+		if err := plugins.Validate(plugin.InputSchema(), input); err != nil {
+			panic(fmt.Sprintf("monitoring: service %q: invalid plugin input: %v", s.ID, err))
+		}
+
 		c.state[s.ID] = generated.MonitoredService{
 			Id:     s.ID,
 			Name:   s.Name,
 			Url:    s.URL,
+			Type:   typeName,
 			Status: generated.Unknown,
 		}
 		c.order = append(c.order, s.ID)
+		c.entries[s.ID] = checkEntry{plugin: plugin, input: input}
 	}
 	return c
+}
+
+// buildDefaultInput constructs the "http" plugin's input ({"url": ...})
+// from a service's legacy URL field, so seed configurations written before
+// the plugin model (just id/name/url) keep working unchanged.
+func buildDefaultInput(s config.Service) json.RawMessage {
+	b, err := json.Marshal(map[string]string{"url": s.URL})
+	if err != nil {
+		// s.URL is always a plain string; Marshal cannot fail here.
+		panic(fmt.Sprintf("monitoring: building default input for %q: %v", s.ID, err))
+	}
+	return b
 }
 
 // List returns the current status of every monitored service, in
@@ -88,22 +147,23 @@ func (c *Checker) Get(id string) (generated.MonitoredService, error) {
 	return s, nil
 }
 
-// Check performs an immediate HTTP health check against the given service's
-// URL, updates its in-memory status, and returns the resulting status. It
-// does not persist any history (no database) — only the latest result is
-// kept.
+// Check performs an immediate check against the given service (via its
+// resolved plugin), updates its in-memory status, and returns the
+// resulting status. It does not persist any history (no database) — only
+// the latest result is kept.
 func (c *Checker) Check(ctx context.Context, id string) (generated.MonitoredService, error) {
 	c.mu.RLock()
 	svc, ok := c.state[id]
+	entry, entryOK := c.entries[id]
 	c.mu.RUnlock()
-	if !ok {
+	if !ok || !entryOK {
 		return generated.MonitoredService{}, ErrNotFound
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, CheckTimeout)
 	defer cancel()
 
-	updated := c.performCheck(ctx, svc)
+	updated := c.performCheck(ctx, svc, entry)
 
 	c.mu.Lock()
 	c.state[id] = updated
@@ -112,32 +172,28 @@ func (c *Checker) Check(ctx context.Context, id string) (generated.MonitoredServ
 	return updated, nil
 }
 
-func (c *Checker) performCheck(ctx context.Context, svc generated.MonitoredService) generated.MonitoredService {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, svc.Url, nil)
+func (c *Checker) performCheck(ctx context.Context, svc generated.MonitoredService, entry checkEntry) generated.MonitoredService {
+	rawOutput, err := entry.plugin.Check(ctx, entry.input)
 	if err != nil {
-		return normalize(svc, 0, false, "invalid service URL: "+err.Error())
+		return normalize(svc, 0, false, "plugin error: "+err.Error())
+	}
+	if err := plugins.Validate(entry.plugin.OutputSchema(), rawOutput); err != nil {
+		return normalize(svc, 0, false, "plugin returned invalid output: "+err.Error())
 	}
 
-	start := time.Now()
-	resp, err := c.client.Do(req)
-	elapsed := time.Since(start)
-	if err != nil {
-		return normalize(svc, elapsed, false, "request failed: "+err.Error())
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return normalize(svc, elapsed, false, fmt.Sprintf("unexpected status code %d", resp.StatusCode))
+	var out pluginOutput
+	if err := json.Unmarshal(rawOutput, &out); err != nil {
+		return normalize(svc, 0, false, "plugin output unmarshal failed: "+err.Error())
 	}
 
-	return normalize(svc, elapsed, true, "")
+	return normalize(svc, time.Duration(out.ElapsedMs)*time.Millisecond, out.Success, out.Message)
 }
 
 // normalize applies Pulse's deterministic status rules:
 //
-//   - request failed, invalid URL, or non-2xx response -> down
-//   - succeeded within HealthyThreshold                -> healthy
-//   - succeeded slower than HealthyThreshold            -> degraded
+//   - success is false                              -> down
+//   - success is true, within HealthyThreshold       -> healthy
+//   - success is true, slower than HealthyThreshold  -> degraded
 func normalize(svc generated.MonitoredService, elapsed time.Duration, success bool, message string) generated.MonitoredService {
 	now := time.Now().UTC()
 	svc.LastChecked = &now

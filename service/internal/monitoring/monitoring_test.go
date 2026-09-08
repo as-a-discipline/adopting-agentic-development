@@ -10,14 +10,22 @@ import (
 
 	"pulse/generated"
 	"pulse/internal/config"
+	"pulse/internal/plugins"
+	"pulse/internal/plugins/httpcheck"
 )
+
+func testRegistry() *plugins.Registry {
+	r := plugins.NewRegistry()
+	r.Register(httpcheck.Type, httpcheck.Factory)
+	return r
+}
 
 func newTestChecker(t *testing.T, url string) *Checker {
 	t.Helper()
 	services := []config.Service{
 		{ID: "svc-a", Name: "Service A", URL: url},
 	}
-	return NewChecker(services, &http.Client{Timeout: CheckTimeout})
+	return NewChecker(services, testRegistry())
 }
 
 func TestNewChecker_SeedsUnknownStatus(t *testing.T) {
@@ -143,7 +151,7 @@ func TestList_PreservesSeedOrder(t *testing.T) {
 		{ID: "b", Name: "B", URL: "http://example.invalid"},
 		{ID: "a", Name: "A", URL: "http://example.invalid"},
 	}
-	c := NewChecker(services, &http.Client{Timeout: CheckTimeout})
+	c := NewChecker(services, testRegistry())
 
 	list := c.List()
 	if len(list) != 2 || list[0].Id != "b" || list[1].Id != "a" {

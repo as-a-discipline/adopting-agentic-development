@@ -21,8 +21,57 @@ servers:
 tags:
   - name: services
     description: Monitored services and their health status
+  - name: plugins
+    description: Discoverable check-plugin types and their input/output schemas
 
 paths:
+  /plugin-types:
+    get:
+      operationId: listPluginTypes
+      summary: List all registered check-plugin types
+      description: |
+        Returns every check-plugin type currently registered by the running
+        service, along with the JSON Schema describing its input
+        (configuration) and output (result) shape. See
+        `service/adr/0002-factory-based-plugin-model-for-checks.md` and
+        `api/adr/0002-plugin-type-discovery-endpoint.md`.
+      tags: [plugins]
+      responses:
+        "200":
+          description: A list of registered plugin types
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PluginType"
+              examples:
+                default:
+                  value:
+                    - type: "http"
+                      inputSchema:
+                        type: "object"
+                        required: ["url"]
+                        properties:
+                          url:
+                            type: "string"
+                            format: "uri"
+                          method:
+                            type: "string"
+                            enum: ["GET", "HEAD"]
+                      outputSchema:
+                        type: "object"
+                        required: ["success"]
+                        properties:
+                          success:
+                            type: "boolean"
+                          statusCode:
+                            type: "integer"
+                          elapsedMs:
+                            type: "integer"
+                          message:
+                            type: "string"
+
   /services:
     get:
       operationId: listServices
@@ -44,12 +93,14 @@ paths:
                     - id: "web-app"
                       name: "Web App"
                       url: "https://web-app.example.test/healthz"
+                      type: "http"
                       status: "healthy"
                       lastChecked: "2026-09-07T14:00:00Z"
                       responseTimeMs: 42
                     - id: "billing-api"
                       name: "Billing API"
                       url: "https://billing-api.example.test/healthz"
+                      type: "http"
                       status: "degraded"
                       lastChecked: "2026-09-07T14:00:05Z"
                       responseTimeMs: 1800
@@ -131,7 +182,7 @@ components:
     MonitoredService:
       type: object
       description: A single monitored HTTP service and its current status.
-      required: [id, name, url, status]
+      required: [id, name, url, type, status]
       properties:
         id:
           type: string
@@ -146,6 +197,14 @@ components:
           format: uri
           description: URL checked to determine service health
           example: "https://web-app.example.test/healthz"
+        type:
+          type: string
+          description: |
+            Identifies which check-plugin type implements this service's
+            health check. Resolve against `GET /plugin-types` for that
+            plugin's input/output schema. See
+            `service/adr/0002-factory-based-plugin-model-for-checks.md`.
+          example: "http"
         status:
           $ref: "#/components/schemas/ServiceStatus"
         lastChecked:
@@ -165,6 +224,28 @@ components:
           nullable: true
           description: Optional human-readable detail, e.g. explaining a degraded/down status
           example: "Response time above healthy threshold"
+
+    PluginType:
+      type: object
+      description: |
+        A registered check-plugin type and the JSON Schema describing its
+        input (configuration) and output (result) shape. See
+        `service/adr/0002-factory-based-plugin-model-for-checks.md` and
+        `api/adr/0002-plugin-type-discovery-endpoint.md`.
+      required: [type, inputSchema, outputSchema]
+      properties:
+        type:
+          type: string
+          description: The plugin type's identifier, e.g. the value used in `MonitoredService.type`
+          example: "http"
+        inputSchema:
+          type: object
+          additionalProperties: true
+          description: JSON Schema describing this plugin's expected input (configuration) shape
+        outputSchema:
+          type: object
+          additionalProperties: true
+          description: JSON Schema describing this plugin's result (output) shape
 
     ErrorResponse:
       type: object

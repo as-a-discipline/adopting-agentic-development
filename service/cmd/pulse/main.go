@@ -16,6 +16,8 @@ import (
 	"pulse/internal/api"
 	"pulse/internal/config"
 	"pulse/internal/monitoring"
+	"pulse/internal/plugins"
+	"pulse/internal/plugins/httpcheck"
 )
 
 func main() {
@@ -26,8 +28,13 @@ func main() {
 		addr = ":8080"
 	}
 
-	checker := monitoring.NewChecker(config.Seed(), nil)
-	handler := api.NewHandler(checker, logger)
+	// Explicit plugin registration — no init()-based self-registration, per
+	// service/adr/0002-factory-based-plugin-model-for-checks.md.
+	registry := plugins.NewRegistry()
+	registry.Register(httpcheck.Type, httpcheck.Factory)
+
+	checker := monitoring.NewChecker(config.Seed(), registry)
+	handler := api.NewHandler(checker, registry, logger)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {

@@ -19,8 +19,22 @@ truth for the Pulse HTTP interface.
 
 ## Architecture Decisions
 
-See [`adr/`](./adr/) for API-specific decisions (e.g. contract-first generation).
+See [`adr/`](./adr/) for API-specific decisions (e.g. contract-first
+generation, the plugin-type discovery endpoint in
+[`adr/0002-plugin-type-discovery-endpoint.md`](./adr/0002-plugin-type-discovery-endpoint.md)).
 Cross-cutting decisions are in the root [`/adr/`](../adr/).
+
+## Plugin-type discovery (`GET /plugin-types`)
+
+`service`'s check mechanisms are implemented as plugins (see
+[`service/adr/0002-factory-based-plugin-model-for-checks.md`](../service/adr/0002-factory-based-plugin-model-for-checks.md)).
+The API surfaces this as a `type` field on `MonitoredService` (which plugin
+implements a given service's check) and a `GET /plugin-types` endpoint that
+lists every registered plugin's `type`, `inputSchema`, and `outputSchema` —
+so plugin capabilities are discoverable through the API contract itself, not
+just in Go source. When adding a new plugin type in `service/`, no contract
+change is required unless the new type needs its own request/response
+shape beyond the generic `{type, inputSchema, outputSchema}` descriptor.
 
 ## Task Interface
 

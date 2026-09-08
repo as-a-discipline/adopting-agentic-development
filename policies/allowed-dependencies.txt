@@ -13,3 +13,4 @@
 
 service:github.com/getkin/kin-openapi
 service:github.com/oapi-codegen/runtime
+service:github.com/santhosh-tekuri/jsonschema/v5
