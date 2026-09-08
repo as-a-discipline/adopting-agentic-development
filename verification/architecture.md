@@ -28,7 +28,9 @@ Check: `ls */AGENTS.md`
   `policies`, `compose`, `helm` — it does not reimplement their logic.
 
 Check: `task --list-all` and inspect that each namespaced task (e.g. `api:lint`)
-resolves to the corresponding component `Taskfile.yml`.
+resolves to the corresponding component `Taskfile.yml`. For a full,
+per-task explanation of what every one of these does, why it exists, and how
+to use it, see [`/docs/tasks-reference.md`](../docs/tasks-reference.md).
 
 ## 4. No host Go/Node dependency for generation/build
 

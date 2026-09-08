@@ -115,6 +115,10 @@ task compose:test
 task helm:validate
 ```
 
+See [`docs/tasks-reference.md`](./docs/tasks-reference.md) for what every
+single task does, why it exists, and how to use it — the full reference for
+every `task` command in this repository.
+
 ## Run Locally
 
 ```bash
