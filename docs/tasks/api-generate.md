@@ -26,8 +26,16 @@ You will not normally run this directly — `task api:validate` and
 `api/openapi.yaml` to see the generated diff before running full
 validation.
 
+**Note:** this only regenerates the **Go** server artifacts
+(`service/generated/`). It does not touch the TypeScript client — after any
+contract change, also run `task web:generate` (see
+[`docs/tasks/web-generate.md`](./web-generate.md)) to keep `web/generated/`
+in sync.
+
 ## Related
 
 * [Task Reference index](../tasks-reference.md)
 * [`task api:validate`](./api-validate.md)
 * [`task service:generate`](./service-generate.md)
+* [`task web:generate`](./web-generate.md) — the companion regeneration step
+  for the TypeScript client; not called by this task

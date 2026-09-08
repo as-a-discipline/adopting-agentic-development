@@ -33,6 +33,14 @@ Implements the OpenAPI contract in Go.
   `internal/monitoring.Checker` understands for status normalization — see
   the ADR's Consequences section for this constraint's rationale and
   limitations.
+* **Adding a new third-party Go dependency:** write the code that actually
+  imports the package first, *then* run `go get <module>@<version>` and
+  `go mod tidy` inside the pinned container (see `service:generate`'s
+  container pattern) — running `go mod tidy` before anything imports the
+  package will silently remove it from `go.mod` again, since tidy only
+  keeps what's actually referenced. Record the new direct dependency in
+  [`policies/allowed-dependencies.txt`](../policies/allowed-dependencies.txt)
+  per policies rule 4 as part of the same change.
 
 ## Architecture Decisions
 

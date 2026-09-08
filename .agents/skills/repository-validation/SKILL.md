@@ -8,16 +8,22 @@ description: Use when running full repository validation, or when a validation f
 ## When to use
 
 * A broad "is the repository valid?" check is requested.
-* `task validate` failed and it's unclear which boundary (structure/api/service/
-  web/compose/helm) caused it.
+* `task validate` failed and it's unclear which boundary (structure/api/
+  service/web/policies/compose/helm) caused it.
 
 ## Workflow
 
 1. Run `task validate` (or `task structure:validate` alone for just the
    structural check) from the repository root.
-2. Read the output to identify which task in the chain failed first.
-3. Load only the applicable component's `AGENTS.md` (and matching skill) for the
-   failing boundary — do not load every component's context.
+2. Read the output to identify which task in the chain failed first. The
+   chain runs in this order: `structure:validate → api:validate →
+   service:validate → web:validate → policies:validate →
+   compose:validate → helm:validate` (see root `Taskfile.yml`'s `validate`
+   task — that is the source of truth if this list ever drifts).
+3. Load only the applicable component's `AGENTS.md` (and matching skill) for
+   the failing boundary — do not load every component's context. A
+   `policies:*` failure has no dedicated skill; read `policies/AGENTS.md`
+   and `policies/README.md` directly instead.
 4. Fix the root cause in that component.
 5. Re-run the scoped task first (e.g. `task service:validate`), then re-run
    `task validate` for the full picture.
