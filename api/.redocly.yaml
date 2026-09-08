@@ -1,0 +1,11 @@
+extends:
+  - recommended
+
+rules:
+  # Pulse's baseline has no authentication by design (see the "Forbidden
+  # Actions" section of the root AGENTS.md) — there is no security scheme to
+  # define per operation.
+  security-defined: off
+  # listServices takes no parameters and has nothing to reject; the other two
+  # operations already document their meaningful 404 response.
+  operation-4xx-response: off

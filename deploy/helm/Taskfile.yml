@@ -1,0 +1,32 @@
+version: "3"
+
+vars:
+  HELM_IMAGE: alpine/helm:3.21.4
+  CHART_DIR: pulse
+
+tasks:
+  lint:
+    desc: Run Helm lint against the chart
+    dir: "{{.TASKFILE_DIR}}"
+    cmds:
+      - docker run --rm -v "{{.TASKFILE_DIR}}":/apps -w /apps {{.HELM_IMAGE}} lint {{.CHART_DIR}}
+
+  template:
+    desc: Render chart templates
+    dir: "{{.TASKFILE_DIR}}"
+    cmds:
+      - docker run --rm -v "{{.TASKFILE_DIR}}":/apps -w /apps {{.HELM_IMAGE}} template pulse {{.CHART_DIR}}
+
+  template:check:
+    desc: Render chart templates and statically verify probes/images/no-secrets
+    dir: "{{.TASKFILE_DIR}}"
+    cmds:
+      - |
+        docker run --rm -v "{{.TASKFILE_DIR}}":/apps -w /apps {{.HELM_IMAGE}} template pulse {{.CHART_DIR}} > /tmp/pulse-rendered.yaml
+        python3 "{{.TASKFILE_DIR}}/scripts/check-rendered-manifests.py" /tmp/pulse-rendered.yaml
+
+  validate:
+    desc: Lint, render, and statically validate the chart
+    cmds:
+      - task: lint
+      - task: template:check

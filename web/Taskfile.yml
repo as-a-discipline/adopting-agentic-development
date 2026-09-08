@@ -1,0 +1,59 @@
+version: "3"
+
+vars:
+  NODE_IMAGE: node:22-alpine
+  GENERATOR_IMAGE: openapitools/openapi-generator-cli:v7.11.0
+
+tasks:
+  generate:
+    desc: Regenerate the TypeScript API client from the OpenAPI contract
+    dir: "{{.TASKFILE_DIR}}"
+    cmds:
+      - rm -rf "{{.TASKFILE_DIR}}/.gen-tmp"
+      - >
+        docker run --rm -v "{{.TASKFILE_DIR}}/..":/local {{.GENERATOR_IMAGE}} generate
+        -i /local/api/openapi.yaml
+        -g typescript-fetch
+        -o /local/web/.gen-tmp
+        --additional-properties=supportsES6=true,typescriptThreePlus=true
+      - rm -rf "{{.TASKFILE_DIR}}/generated"
+      - mkdir -p "{{.TASKFILE_DIR}}/generated"
+      - cp -R "{{.TASKFILE_DIR}}/.gen-tmp/apis" "{{.TASKFILE_DIR}}/.gen-tmp/models" "{{.TASKFILE_DIR}}/.gen-tmp/index.ts" "{{.TASKFILE_DIR}}/.gen-tmp/runtime.ts" "{{.TASKFILE_DIR}}/generated/"
+      - rm -rf "{{.TASKFILE_DIR}}/.gen-tmp"
+      - >
+        docker run --rm -v "{{.TASKFILE_DIR}}":/app -w /app
+        {{.NODE_IMAGE}} node tools/fix-generated-imports.mjs generated
+
+  lint:
+    desc: Check web source for syntax/import-resolution errors (no npm dependency — see AGENTS.md)
+    dir: "{{.TASKFILE_DIR}}"
+    cmds:
+      - >
+        docker run --rm -v "{{.TASKFILE_DIR}}":/app -w /app
+        {{.NODE_IMAGE}} node tools/check.mjs
+
+  test:
+    desc: Run web application unit tests (Node's built-in test runner)
+    dir: "{{.TASKFILE_DIR}}"
+    cmds:
+      - >
+        docker run --rm -v "{{.TASKFILE_DIR}}":/app -w /app
+        {{.NODE_IMAGE}} node --experimental-transform-types --test src/**/*.test.ts
+
+  build:
+    desc: Compile the web application to static, browser-loadable JavaScript (dist/)
+    dir: "{{.TASKFILE_DIR}}"
+    cmds:
+      - >
+        docker run --rm -v "{{.TASKFILE_DIR}}":/app -w /app
+        {{.NODE_IMAGE}} node tools/build.mjs
+
+  validate:
+    desc: Run all deterministic checks required to consider the web app valid
+    dir: "{{.TASKFILE_DIR}}"
+    cmds:
+      - task: generate
+      - "{{.TASKFILE_DIR}}/../scripts/check-generated-fresh.sh web/generated {{.TASKFILE_DIR}}/.."
+      - task: lint
+      - task: test
+      - task: build

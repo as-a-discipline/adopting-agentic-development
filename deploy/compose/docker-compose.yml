@@ -1,0 +1,91 @@
+name: pulse
+
+# Deterministic local integration environment for Pulse (deploy/compose/AGENTS.md).
+# No external network dependency is required for any service to become healthy
+# or for `task compose:test` to pass: the three "*-target" services are
+# deliberately-behaved fake HTTP servers (see fakes/fake-target.mjs), and
+# pulse-service is configured (via PULSE_SEED_SERVICES_JSON) to monitor them
+# instead of the public internet.
+
+services:
+  healthy-target:
+    image: node:22-alpine
+    working_dir: /app
+    volumes:
+      - ./fakes:/app:ro
+    environment:
+      MODE: healthy
+    command: ["node", "fake-target.mjs"]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost/__health"]
+      interval: 2s
+      timeout: 2s
+      retries: 10
+
+  degraded-target:
+    image: node:22-alpine
+    working_dir: /app
+    volumes:
+      - ./fakes:/app:ro
+    environment:
+      MODE: degraded
+      DELAY_MS: "400"
+    command: ["node", "fake-target.mjs"]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost/__health"]
+      interval: 2s
+      timeout: 2s
+      retries: 10
+
+  down-target:
+    image: node:22-alpine
+    working_dir: /app
+    volumes:
+      - ./fakes:/app:ro
+    environment:
+      MODE: down
+    command: ["node", "fake-target.mjs"]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost/__health"]
+      interval: 2s
+      timeout: 2s
+      retries: 10
+
+  pulse-service:
+    build:
+      context: ../../service
+    environment:
+      PULSE_SEED_SERVICES_JSON: >-
+        [
+          {"id":"healthy-target","name":"Healthy Target","url":"http://healthy-target/"},
+          {"id":"degraded-target","name":"Degraded Target","url":"http://degraded-target/"},
+          {"id":"down-target","name":"Down Target","url":"http://down-target/"}
+        ]
+    depends_on:
+      healthy-target:
+        condition: service_healthy
+      degraded-target:
+        condition: service_healthy
+      down-target:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:8080/healthz"]
+      interval: 2s
+      timeout: 2s
+      retries: 15
+    ports:
+      - "18080:8080"
+
+  pulse-web:
+    build:
+      context: ../../web
+    depends_on:
+      pulse-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/"]
+      interval: 2s
+      timeout: 2s
+      retries: 10
+    ports:
+      - "18000:8080"

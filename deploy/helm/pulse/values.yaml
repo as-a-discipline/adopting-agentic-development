@@ -1,0 +1,29 @@
+# Default values for the pulse chart.
+# Image names/tags, replica counts, and app configuration are driven entirely
+# from here — no environment-specific values are hardcoded in templates.
+
+service:
+  name: pulse-service
+  image:
+    repository: pulse-service
+    tag: latest
+    pullPolicy: IfNotPresent
+  replicaCount: 1
+  port: 8080
+  # JSON array of {id,name,url} seeding the monitored services list. Left
+  # empty by default (falls back to the service's built-in placeholder seed);
+  # set this to point at real targets for a given environment.
+  seedServicesJSON: ""
+  resources: {}
+
+web:
+  name: pulse-web
+  image:
+    repository: pulse-web
+    tag: latest
+    pullPolicy: IfNotPresent
+  replicaCount: 1
+  # 8080 (not 80): the web runtime image (nginxinc/nginx-unprivileged) runs as
+  # a non-root user and cannot bind privileged ports below 1024.
+  port: 8080
+  resources: {}

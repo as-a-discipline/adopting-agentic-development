@@ -1,0 +1,7 @@
+version: "3"
+
+tasks:
+  validate:
+    desc: Validate all deploy subcomponents (compose + helm)
+    cmds:
+      - 'echo "Use root Taskfile: task compose:validate / task helm:validate"'

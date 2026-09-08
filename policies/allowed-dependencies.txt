@@ -1,0 +1,16 @@
+# Dependency governance allow-list (Session 4).
+#
+# This is intentionally simple and transparent: a flat list of DIRECT
+# third-party dependencies each component is currently allowed to depend on.
+# It is not a license/supportability scanner — it's a reviewable checkpoint so
+# a new direct dependency shows up as an explicit, visible diff to this file
+# rather than being silently added. See scripts/check-dependency-governance.sh
+# (wired into `task policies:validate`) and policies/README.md rule 4.
+#
+# Format: one "<component>:<dependency>" per line. Indirect/transitive
+# dependencies are not listed here — they are expected to change as direct
+# dependencies do, and are visible in go.sum/lockfiles.
+
+service:github.com/getkin/kin-openapi
+service:github.com/oapi-codegen/runtime
+service:github.com/santhosh-tekuri/jsonschema/v5

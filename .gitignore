@@ -1,0 +1,27 @@
+# --- Go ---
+service/bin/
+*.test
+*.out
+
+# --- Node / web ---
+web/node_modules/
+web/dist/
+web/build/
+npm-debug.log*
+
+# --- Docker / runtime ---
+*.pid
+*.log
+
+# --- Editors / OS ---
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# --- Task ---
+.task/
+
+# NOTE: generated/ directories (service/generated, web/generated) are intentionally
+# NOT ignored — generated code is committed and checked for freshness by CI-equivalent
+# validation tasks, per the "Generated is not handwritten" architecture decision.

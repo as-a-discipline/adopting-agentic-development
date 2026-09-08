@@ -1,0 +1,52 @@
+version: "3"
+
+vars:
+  GO_IMAGE: golang:1.23-alpine
+  GOLANGCI_LINT_IMAGE: golangci/golangci-lint:v1.64.8
+
+tasks:
+  generate:
+    desc: Regenerate Go server types/interfaces from the OpenAPI contract (delegates to api:generate)
+    dir: "{{.TASKFILE_DIR}}"
+    cmds:
+      - task --taskfile "{{.TASKFILE_DIR}}/../api/Taskfile.yml" --dir "{{.TASKFILE_DIR}}/../api" generate
+
+  fmt:
+    desc: Format Go source (gofmt, pinned container)
+    dir: "{{.TASKFILE_DIR}}"
+    cmds:
+      - >
+        docker run --rm -v "{{.TASKFILE_DIR}}":/src -w /src {{.GO_IMAGE}}
+        sh -c "gofmt -l -w ./cmd ./internal && test -z \"$(gofmt -l ./cmd ./internal)\""
+
+  lint:
+    desc: Run Go static analysis (golangci-lint, pinned container)
+    dir: "{{.TASKFILE_DIR}}"
+    cmds:
+      - docker run --rm -v "{{.TASKFILE_DIR}}":/src -w /src {{.GOLANGCI_LINT_IMAGE}} golangci-lint run ./...
+
+  test:
+    desc: Run Go unit/contract tests (pinned container)
+    dir: "{{.TASKFILE_DIR}}"
+    cmds:
+      - docker run --rm -v "{{.TASKFILE_DIR}}":/src -w /src {{.GO_IMAGE}} go test ./... -v -cover
+
+  build:
+    desc: Build the Go service binary (pinned container)
+    dir: "{{.TASKFILE_DIR}}"
+    cmds:
+      - mkdir -p "{{.TASKFILE_DIR}}/bin"
+      - >
+        docker run --rm -v "{{.TASKFILE_DIR}}":/src -w /src {{.GO_IMAGE}}
+        go build -o bin/pulse ./cmd/pulse
+
+  validate:
+    desc: Run all deterministic checks required to consider the service valid
+    dir: "{{.TASKFILE_DIR}}"
+    cmds:
+      - task: generate
+      - "{{.TASKFILE_DIR}}/../scripts/check-generated-fresh.sh service/generated {{.TASKFILE_DIR}}/.."
+      - task: fmt
+      - task: lint
+      - task: test
+      - task: build

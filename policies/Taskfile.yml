@@ -1,0 +1,33 @@
+version: "3"
+
+# Deterministic engineering policy checks (see README.md for the rule set).
+# Rules 1 (generated-code integrity) and 2 (API contract lint) are already
+# enforced by api:validate/service:validate/web:validate and are not
+# duplicated here — this Taskfile covers rules 3-5 (component boundaries,
+# dependency governance, container/deployment quality).
+
+tasks:
+  boundaries:
+    desc: "Rule 3 — scan for forbidden cross-component source dependencies"
+    dir: "{{.TASKFILE_DIR}}/.."
+    cmds:
+      - ./scripts/check-component-boundaries.sh
+
+  dependencies:
+    desc: "Rule 4 — dependency governance summary + allow-list check"
+    dir: "{{.TASKFILE_DIR}}/.."
+    cmds:
+      - python3 scripts/check-dependency-governance.py
+
+  containers:
+    desc: "Rule 5 — basic Docker/Helm container quality checks"
+    dir: "{{.TASKFILE_DIR}}/.."
+    cmds:
+      - ./scripts/check-container-quality.sh
+
+  validate:
+    desc: Run all currently-enforceable policy checks
+    cmds:
+      - task: boundaries
+      - task: dependencies
+      - task: containers

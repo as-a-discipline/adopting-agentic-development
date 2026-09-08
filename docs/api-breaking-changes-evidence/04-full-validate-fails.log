@@ -1,0 +1,36 @@
+### Scenario 4: full task validate fails (canonical repository-wide gate)
+$ task validate
+task: [structure:validate] ./scripts/validate-structure.sh
+== Required root files ==
+== Required component AGENTS.md ==
+== Required component Taskfile.yml ==
+== Required skills ==
+== Required root ADRs ==
+== Required component ADRs ==
+== Required verification docs ==
+
+Repository structure: OK
+task: [api:lint] docker run --rm -v "/Users/westwate/Code/Github/public/as-a-discipline/adopting-agentic-development/api":/spec -w /spec redocly/cli:1.25.3 lint openapi.yaml
+(node:1) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+validating openapi.yaml...
+openapi.yaml: validated in 10ms
+
+Woohoo! Your API description is valid. 🎉
+
+task: [api:compat] if [ ! -f openapi.baseline.yaml ]; then
+  echo "No compatibility baseline found — bootstrapping openapi.baseline.yaml from the current contract."
+  echo "This run establishes the baseline; it does not itself prove compatibility."
+  cp openapi.yaml openapi.baseline.yaml
+else
+  docker run --rm -v "/Users/westwate/Code/Github/public/as-a-discipline/adopting-agentic-development/api":/spec -w /spec tufin/oasdiff:v1.31.0 breaking --fail-on ERR /spec/openapi.baseline.yaml /spec/openapi.yaml
+fi
+
+1 changes: 1 error, 0 warning, 0 info
+error	[api-path-removed-without-deprecation] at /spec/openapi.baseline.yaml
+	in API POST /services/{id}/check
+		api path removed without deprecation
+
+
+task: Failed to run task "validate": task: Failed to run task "api:validate": task: Failed to run task "api:compat": exit status 1
+EXIT=201

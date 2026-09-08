@@ -1,0 +1,14 @@
+{
+  "//": "Editor/IDE type-hinting only. No 'tsc' compile step is part of the build — see web/AGENTS.md and web/Taskfile.yml. Node's built-in type-stripping (node:module stripTypeScriptTypes) performs no type checking of its own; this file exists purely so editors like VS Code can offer accurate autocomplete/diagnostics while writing source.",
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ES2022",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "strict": true,
+    "noEmit": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true
+  },
+  "include": ["src", "generated"]
+}

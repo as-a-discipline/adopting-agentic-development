@@ -1,0 +1,57 @@
+version: "3"
+
+# Root Taskfile — composes component Taskfiles. It does not reimplement any
+# component's build/test/lint/generate logic; each component owns that.
+# `task validate` is the canonical repository-level validation entry point.
+
+includes:
+  api:
+    taskfile: ./api/Taskfile.yml
+    dir: ./api
+  service:
+    taskfile: ./service/Taskfile.yml
+    dir: ./service
+  web:
+    taskfile: ./web/Taskfile.yml
+    dir: ./web
+  policies:
+    taskfile: ./policies/Taskfile.yml
+    dir: ./policies
+  compose:
+    taskfile: ./deploy/compose/Taskfile.yml
+    dir: ./deploy/compose
+  helm:
+    taskfile: ./deploy/helm/Taskfile.yml
+    dir: ./deploy/helm
+
+tasks:
+  default:
+    cmds:
+      - task --list-all
+
+  structure:validate:
+    desc: Validate repository structure (AGENTS.md/SKILL.md/Taskfile presence, skill frontmatter)
+    cmds:
+      - ./scripts/validate-structure.sh
+
+  validate:
+    desc: Run full repository validation across all components (canonical entry point)
+    cmds:
+      - task: structure:validate
+      - task: api:validate
+      - task: service:validate
+      - task: web:validate
+      - task: policies:validate
+      - task: compose:validate
+      - task: helm:validate
+
+  hooks:install:
+    desc: >
+      Install the local-only git pre-commit hook (fast guardrail subset:
+      structure + policies). This is an explicit, per-clone opt-in step —
+      .git/hooks/ is never tracked by git and this hook is never pushed or
+      auto-applied. Re-run after changing scripts/git-hooks/pre-commit.
+    cmds:
+      - cp scripts/git-hooks/pre-commit .git/hooks/pre-commit
+      - chmod +x .git/hooks/pre-commit
+      - echo "Installed .git/hooks/pre-commit (local-only; see scripts/git-hooks/pre-commit)."
